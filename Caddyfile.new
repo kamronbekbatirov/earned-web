@@ -1,0 +1,196 @@
+# ===========================================
+# Caddy Configuration for Raspberry Pi 5
+# ===========================================
+{
+	email kamronbekbatirov@gmail.com
+}
+
+(security_headers) {
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}
+
+(telegram_miniapp_headers) {
+	header {
+		X-Content-Type-Options nosniff
+		-X-Frame-Options
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Content-Security-Policy "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org https://telegram.org"
+		-Server
+	}
+}
+
+(batirov_headers) {
+	header {
+		X-Content-Type-Options nosniff
+		-X-Frame-Options
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Content-Security-Policy "frame-ancestors 'self';"
+		-Server
+	}
+}
+
+(block_sensitive) {
+	@blocked {
+		path /.git/*
+		path /.env*
+		path /.htaccess
+		path /*.sql
+		path /*.db
+		path /*.bak
+		path /*.backup
+		path /node_modules/*
+		path /.npm/*
+	}
+	respond @blocked 403
+}
+
+maverick.uz, www.maverick.uz {
+	import security_headers
+	import block_sensitive
+	reverse_proxy localhost:3020
+}
+
+batirov.co.uk, www.batirov.co.uk {
+	import batirov_headers
+	import block_sensitive
+	reverse_proxy localhost:3004
+}
+
+nothard.uz, www.nothard.uz {
+	import security_headers
+	import block_sensitive
+	handle /api/* {
+		reverse_proxy localhost:5000
+	}
+	handle /payme/* {
+		reverse_proxy localhost:5001
+	}
+	handle {
+		reverse_proxy localhost:3005
+	}
+}
+
+my-bots.uz {
+	import telegram_miniapp_headers
+
+	@blocked_mybots {
+		path /xpgame/.git/*
+		path /xpgame/.env*
+		path /xpgame/*.db
+		path /vipsalon/.git/*
+		path /vipsalon/.env*
+		path /vipsalon/*.db
+	}
+	respond @blocked_mybots 403
+
+	# ============================================
+	# EARNED APP - Universal Links (iOS)
+	# ============================================
+	
+	# Apple App Site Association - ВАЖНО: правильный Content-Type
+	handle /.well-known/apple-app-site-association {
+		root * /var/www/earned
+		header Content-Type application/json
+		header Cache-Control "max-age=86400"
+		file_server
+	}
+	
+	# Earned invite links - приглашение друзей
+	handle /earned/invite/* {
+		root * /var/www/earned
+		try_files {path} /invite/index.html
+		file_server
+	}
+	
+	# Earned join links - приглашение в семью
+	handle /earned/join/* {
+		root * /var/www/earned
+		try_files {path} /join/index.html
+		file_server
+	}
+
+	# Earned Privacy Policy (для App Store)
+	handle /earned/privacy {
+		root * /var/www/earned
+		rewrite * /privacy/index.html
+		file_server
+	}
+
+	# Earned Terms of Service (для App Store)
+	handle /earned/terms {
+		root * /var/www/earned
+		rewrite * /terms/index.html
+		file_server
+	}
+
+	# VIP Salon static images - services
+	@vipsalon_service_images {
+		path /vipsalon/services/*.png /vipsalon/services/*.jpg /vipsalon/services/*.jpeg /vipsalon/services/*.webp /vipsalon/services/*.avif /vipsalon/services/*.gif
+	}
+	handle @vipsalon_service_images {
+		root * /var/www/vipsalon/public
+		uri strip_prefix /vipsalon
+		file_server
+	}
+
+	# VIP Salon static images - masters
+	@vipsalon_master_images {
+		path /vipsalon/masters/*.png /vipsalon/masters/*.jpg /vipsalon/masters/*.jpeg /vipsalon/masters/*.webp /vipsalon/masters/*.avif /vipsalon/masters/*.gif
+	}
+	handle @vipsalon_master_images {
+		root * /var/www/vipsalon/public
+		uri strip_prefix /vipsalon
+		file_server
+	}
+
+	# DIRECT ACCESS: /vipadmin/* -> rewrite to /vipsalon/vipadmin/* (NO redirect)
+	handle /vipadmin* {
+		uri replace /vipadmin /vipsalon/vipadmin 1
+		reverse_proxy localhost:3030
+	}
+
+	# VIP Salon Mini App (port 3030)
+	handle /vipsalon* {
+		reverse_proxy localhost:3030
+	}
+
+	# XPGame API
+	handle /xpgame/api/* {
+		uri strip_prefix /xpgame
+		reverse_proxy localhost:3007
+	}
+
+	# XPGame frontend
+	handle_path /xpgame* {
+		root * /var/www/xpgame/dist
+		try_files {path} /index.html
+		file_server
+	}
+
+	handle {
+		respond "my-bots.uz" 200
+	}
+}
+
+taxco.uz, www.taxco.uz {
+	import security_headers
+	root * /var/www/taxco
+	route {
+		@php path *.php
+		respond @php "Access Denied" 403
+		@sensitive path_regexp sensitive \.(db|sql|bak|backup|env)$|/\.git|/\.htaccess
+		respond @sensitive "Access Denied" 403
+		file_server
+	}
+}
