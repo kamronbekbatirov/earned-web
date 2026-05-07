@@ -1,107 +1,101 @@
 # Earned — Web Companion
 
-The static web surface for **Earned**, an iOS life-gamification app that lets people set goals, build habits, complete tasks for points, and spend those points on self-chosen rewards. Family members can be linked together to share progress.
-
-This repository hosts everything the App Store needs to publish the app and everything the iOS client needs to handle invitation links — nothing more, nothing less.
+> **The supporting website for [Earned](https://apps.apple.com), an iOS app that turns daily self-improvement into a points-based game.**
 
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
-[![App ID](https://img.shields.io/badge/App%20ID-N96HRUQNQW.com.kamronbekbatirov.Earned-1f6feb?style=flat-square&logo=apple)](https://apps.apple.com/app/earned)
+[![Static](https://img.shields.io/badge/static-HTML%20%2B%20CSS-orange?style=flat-square)](.)
+[![iOS](https://img.shields.io/badge/companion%20to-iOS%20app-000?style=flat-square&logo=apple&logoColor=white)](.)
 
-## Why is this a separate web project?
+---
 
-The Earned app itself is native Swift, but iOS requires three publicly reachable resources for the experience to work:
+## What is Earned?
 
-1. **Apple App Site Association (AASA)** — declares which URL paths the app is allowed to handle as Universal Links.
-2. **Universal-Link landing pages** — what visitors see if they click an invitation link without having the app installed yet.
-3. **Privacy Policy & Terms of Service** — required by Apple to publish the app on the App Store.
+Earned is a mobile app for people who want to build better habits but find traditional to-do lists boring. The idea is simple:
 
-All three live here as plain HTML, served from `https://my-bots.uz/earned/...` behind Caddy.
+- Set goals you actually care about — fitness, learning, family time, anything.
+- Complete tasks that move you toward those goals.
+- Earn points for finishing tasks.
+- Spend those points on rewards you've chosen for yourself: a movie night, an expensive coffee, a video-game session, whatever feels worth it to you.
+- Pull family members in so you can share progress and celebrate together.
 
-## What's in the repository
+The app itself is native Swift on iOS. **This repository is not the app.** This is the small public website that has to exist for the app to work properly.
 
-| Path | Purpose |
+## Why does an iOS app need a website?
+
+Three reasons, and Apple insists on all of them before you're allowed to ship to the App Store:
+
+1. **Friend invitations need to land somewhere.** When a user invites a friend by text or WhatsApp, the message includes a link like `https://my-bots.uz/earned/invite/ABC123`. If the friend already has the app, tapping that link opens it directly to the right screen. If they don't, the link opens a friendly "Download Earned" page that bounces them to the App Store. This repository hosts those landing pages.
+
+2. **Family-join codes need to be shareable.** Same flow as invitations, but for joining a family group: `https://my-bots.uz/earned/join/<code>`.
+
+3. **Apple requires a public Privacy Policy and Terms of Service.** The App Store reviewer will reject any app whose policies are not reachable at a stable HTTPS URL. Both documents are written in Markdown (`PRIVACY_POLICY.md`, `TERMS_OF_SERVICE.md`) and rendered as HTML pages.
+
+## What you'll find in this repository
+
+| Folder | What it does |
 | --- | --- |
-| `.well-known/apple-app-site-association` | The AASA manifest. Declares the app ID `N96HRUQNQW.com.kamronbekbatirov.Earned` and the two URL patterns it handles: `/earned/invite/*` and `/earned/join/*`. |
-| `invite/index.html` | Landing for friend-invitation links (`/earned/invite/<code>`). Tries to launch the app via the `earned://` custom URL scheme, falls back to the App Store. |
-| `join/index.html` | Landing for family-join links (`/earned/join/<code>`). Shows the join code on screen so the user can read it back if the deep-link bounce fails. |
-| `privacy/index.html` | Standalone Privacy Policy page. The Markdown source is in `PRIVACY_POLICY.md`. |
-| `terms/index.html` | Standalone Terms of Service page. Markdown source in `TERMS_OF_SERVICE.md`. |
-| `PRIVACY_POLICY.md`, `TERMS_OF_SERVICE.md` | Source-of-truth Markdown for the legal pages. Edit here, regenerate the HTML, ship. |
-| `Caddyfile.new` | Reference Caddy v2 configuration (originally written for a Raspberry Pi 5 host) showing how to serve the AASA file with the right `Content-Type`, set strict security headers, and block sensitive paths. |
+| `invite/` | The "your friend invited you to Earned" landing page. |
+| `join/` | The "you've been invited to join a family" landing page. |
+| `privacy/` | The Privacy Policy users see when they tap *Privacy* inside the app. |
+| `terms/` | The Terms of Service. |
+| `.well-known/apple-app-site-association` | A small JSON file that tells iOS "yes, this website is allowed to deep-link into the Earned app." |
+| `Caddyfile.new` | A working production web-server config you can drop onto a Raspberry Pi or any Linux box. |
+| `PRIVACY_POLICY.md`, `TERMS_OF_SERVICE.md` | The Markdown sources for the legal pages. Edit these when the policy changes. |
 
-## How Universal Links work here
+## How a user actually experiences this
 
 ```
-User taps  https://my-bots.uz/earned/invite/ABC123
-                  │
-                  ▼
-   ┌─────────────────────────────┐    iOS sees a valid AASA entry
-   │  iOS reads cached AASA      │──► /earned/invite/* is on the
-   │  (Apple CDN refreshed       │    allow-list → launches the app
-   │   every 24 hours)           │    with a NSUserActivity
-   └─────────────────────────────┘
-                  │
-                  ▼ (no app installed)
-   ┌─────────────────────────────┐
-   │  Browser opens invite/      │  ─►  earned://invite/<code>  (custom scheme)
-   │  index.html, runs the JS    │      ↳ if the scheme handler is registered,
-   │                             │        the app opens; otherwise the
-   └─────────────────────────────┘        "Download Earned" CTA stays visible.
+Friend sends you:  https://my-bots.uz/earned/invite/ABC123
+                                │
+                                ▼
+       ┌──────────────────────────────────────────┐
+       │  You have the app installed?             │
+       └──────────────────────────────────────────┘
+              │ yes                       │ no
+              ▼                           ▼
+    Earned opens, jumps           A friendly page says
+    straight to the invite        "You've been invited to
+    acceptance screen.            Earned" with a big
+                                  Download button. Tap it,
+                                  install the app, sign in,
+                                  invitation is waiting.
 ```
 
-The 100 ms `setTimeout` before the deep-link redirect is intentional: it gives the page time to render so users on a fresh install still see the App Store call-to-action when iOS rejects the custom-scheme URL.
+## Running it locally
 
-## Apple App Site Association — the gotcha
-
-Apple's CDN is strict about three things:
-
-1. The file must be served from `https://<host>/.well-known/apple-app-site-association` (no `.json` extension).
-2. The response must have `Content-Type: application/json` exactly.
-3. The certificate chain must be valid — Apple does not follow self-signed roots.
-
-The provided Caddy configuration handles all three:
-
-```caddy
-handle /.well-known/apple-app-site-association {
-    root * /var/www/earned
-    header Content-Type application/json
-    header Cache-Control "max-age=86400"
-    file_server
-}
-```
-
-If Universal Links are not opening the app, the first thing to check is whether iOS actually fetched the AASA — `curl -i https://<host>/.well-known/apple-app-site-association` should return `200 OK` with the JSON content type.
-
-## Running locally
-
-No build step, no dependencies. Any static file server will do:
+There's nothing to install — every page is plain HTML and CSS. Just open it in a browser:
 
 ```bash
 python3 -m http.server 8080
-# or
-npx serve .
+# then visit http://localhost:8080
 ```
 
-For the AASA file to actually exercise Universal Links you need a real domain with HTTPS and the iOS app installed on a physical device — the simulator does not support Universal Links.
+For Universal Links to actually trigger the app you need a real HTTPS domain and a physical iPhone (the simulator does not support Universal Links). If something isn't working, the very first thing to check is whether iOS can fetch the AASA file:
+
+```bash
+curl -i https://your-host/.well-known/apple-app-site-association
+```
+
+It should return `200 OK` with `Content-Type: application/json`.
 
 ## Updating the legal pages
 
-The HTML in `privacy/index.html` and `terms/index.html` is regenerated from the Markdown sources whenever the policy changes. The current pages are dated **4 February 2026**. To update:
+When the Privacy Policy or Terms change:
 
 1. Edit `PRIVACY_POLICY.md` or `TERMS_OF_SERVICE.md`.
-2. Bump the *Last Updated* date inside the document.
-3. Re-render to HTML and copy into the corresponding `index.html` (the wrapper styles in the existing files can be reused as-is).
+2. Bump the *Last Updated* date.
+3. Re-render to HTML and replace the body of `privacy/index.html` or `terms/index.html`.
 4. Commit, push, deploy.
 
-## Deployment
+## Hosting
 
-Anything that can serve static files works: Caddy, Nginx, S3 + CloudFront, Cloudflare Pages, GitHub Pages — as long as:
+Anywhere that serves static files works — Caddy, Nginx, S3 + CloudFront, Cloudflare Pages, GitHub Pages — as long as:
 
-- The AASA file is delivered with `Content-Type: application/json`.
-- HTTPS is enforced (Universal Links require TLS).
+- HTTPS is enforced (Universal Links won't work over plain HTTP).
+- The AASA file is delivered with `Content-Type: application/json` exactly.
 
-A working production configuration is included in `Caddyfile.new`.
+A working production configuration is shipped in `Caddyfile.new`.
 
 ## License
 
-Released under the [MIT License](LICENSE).
+[MIT](LICENSE).
