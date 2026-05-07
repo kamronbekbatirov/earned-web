@@ -96,6 +96,39 @@ Anywhere that serves static files works — Caddy, Nginx, S3 + CloudFront, Cloud
 
 A working production configuration is shipped in `Caddyfile.new`.
 
+---
+
+## For contributors / AI agents
+
+> A short technical orientation for anyone (human or AI) who's been handed this repo and needs to be productive in 60 seconds.
+
+### Mental model
+This is **not** the iOS app. It is the *minimum* public web surface required by Apple before the iOS app is allowed to ship and deep-link properly. Three jobs only: (1) host AASA for Universal Links, (2) host the invite/join landing pages those Universal Links point at, (3) host the legal docs the App Store demands.
+
+### Project tree
+
+```
+.
+├── invite/index.html          Landing for friend invitations  (path: /invite/<code>)
+├── join/index.html            Landing for family-join invites (path: /join/<code>)
+├── privacy/index.html         Rendered Privacy Policy
+├── terms/index.html           Rendered Terms of Service
+├── PRIVACY_POLICY.md          ← edit this · re-render to privacy/index.html
+├── TERMS_OF_SERVICE.md        ← edit this · re-render to terms/index.html
+├── .well-known/
+│   └── apple-app-site-association   AASA · MUST serve as application/json · MUST be 200
+├── Caddyfile.new              Reference production config (TLS + AASA Content-Type)
+└── LICENSE
+```
+
+### Conventions and gotchas
+
+- **AASA is critical.** If `curl -i https://host/.well-known/apple-app-site-association` does not return `200` with `Content-Type: application/json`, Universal Links silently fail and the app never opens. Most static hosts get this wrong by default — the file has no extension, so MIME-type detection misfires.
+- **No build step. No bundler. No package.json.** Don't introduce one — anyone who clones this expects to deploy it raw.
+- **Markdown is canonical for legal pages.** When updating policy, edit the `.md` file, bump the *Last Updated* line, then re-render the `<body>` of the matching `index.html`. Don't let the two drift.
+- **Don't rename paths.** `invite/`, `join/`, and `.well-known/` are referenced by the iOS app and the AASA file. Renaming any of them silently breaks deep linking.
+- **Universal Links cannot be tested in the iOS Simulator.** Real device, real HTTPS. Easiest test: SMS the link to yourself.
+
 ## License
 
 [MIT](LICENSE).
